@@ -1,0 +1,49 @@
+{
+	"name": "mcp-add",
+	"version": "0.0.1",
+	"description": "CLI tool to add MCP servers to various AI coding clients",
+	"main": "src/index.js",
+	"bin": {
+		"mcp-add": "./src/index.js"
+	},
+	"scripts": {
+		"check": "tsc --noEmit",
+		"start": "node src/index.js",
+		"format": "prettier --write .",
+		"lint": "eslint .",
+		"release": "changeset publish"
+	},
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"cli",
+		"claude",
+		"claude-code",
+		"cursor",
+		"windsurf",
+		"opencode",
+		"continue"
+	],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.21.0",
+	"type": "module",
+	"dependencies": {
+		"@changesets/cli": "^2.29.8",
+		"@clack/prompts": "^0.9.0",
+		"jsonc-parser": "^3.3.1",
+		"smol-toml": "^1.6.0",
+		"yaml": "^2.7.0",
+		"yargs": "^17.7.2"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.39.2",
+		"@types/node": "^22.0.0",
+		"@types/yargs": "^17.0.33",
+		"eslint": "^9.39.2",
+		"globals": "^17.0.0",
+		"prettier": "^3.7.4",
+		"typescript": "^5.8.0",
+		"typescript-eslint": "^8.52.0"
+	}
+}

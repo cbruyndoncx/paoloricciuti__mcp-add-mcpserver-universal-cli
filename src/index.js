@@ -1,0 +1,413 @@
+#!/usr/bin/env node
+
+/** @import { MCPServerConfig } from './clients/types.js' */
+
+import * as clack from '@clack/prompts';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
+import { clients, client_names } from './clients/index.js';
+
+/**
+ * Parses a comma-separated string into an array of trimmed strings
+ * @param {string | undefined} value - The comma-separated string
+ * @returns {string[]} Array of trimmed strings
+ */
+function parse_comma_separated(value) {
+	if (!value) return [];
+	return value
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+}
+
+/**
+ * Parses a comma-separated string of KEY=value pairs into an object
+ * @param {string | undefined} value - The comma-separated KEY=value string
+ * @returns {Record<string, string>} Object of key-value pairs
+ */
+function parse_key_value_pairs(value) {
+	if (!value) return {};
+	/** @type {Record<string, string>} */
+	const result = {};
+	const pairs = value
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	for (const pair of pairs) {
+		const eq_index = pair.indexOf('=');
+		if (eq_index > 0) {
+			const key = pair.substring(0, eq_index).trim();
+			const val = pair.substring(eq_index + 1).trim();
+			result[key] = val;
+		}
+	}
+	return result;
+}
+
+/**
+ * Checks if the user cancelled a prompt
+ * @param {unknown} value - The value to check
+ * @returns {value is symbol} Whether the value is a cancel symbol
+ */
+function is_cancel(value) {
+	return clack.isCancel(value);
+}
+
+/**
+ * Determines if all required arguments are provided for non-interactive mode
+ * @param {object} argv - The parsed arguments
+ * @param {string} [argv.name] - Server name
+ * @param {string} [argv.type] - Server type
+ * @param {string} [argv.command] - Command for local servers
+ * @param {string} [argv.url] - URL for remote servers
+ * @param {string} [argv.scope] - Config scope
+ * @param {string} [argv.clients] - Comma-separated client names
+ * @returns {boolean} Whether we can run non-interactively
+ */
+function can_run_non_interactive(argv) {
+	if (!argv.name || !argv.type || !argv.scope || !argv.clients) {
+		return false;
+	}
+
+	if (argv.type === 'local' && !argv.command) {
+		return false;
+	}
+
+	if (argv.type === 'remote' && !argv.url) {
+		return false;
+	}
+
+	return true;
+}
+
+/**
+ * Main CLI function
+ * @returns {Promise<void>}
+ */
+async function main() {
+	const argv = await yargs(hideBin(process.argv))
+		.scriptName('mcp-add')
+		.usage('$0 [options]')
+		.option('name', {
+			alias: 'n',
+			type: 'string',
+			description: 'Server name',
+		})
+		.option('type', {
+			alias: 't',
+			type: 'string',
+			choices: /** @type {const} */ (['local', 'remote']),
+			description: 'Server type (local or remote)',
+		})
+		.option('command', {
+			alias: 'c',
+			type: 'string',
+			description:
+				'Full command to run (local servers only), e.g. "npx -y @modelcontextprotocol/server-filesystem /tmp"',
+		})
+		.option('env', {
+			alias: 'e',
+			type: 'string',
+			description: 'Comma-separated KEY=value environment variables (local servers only)',
+		})
+		.option('url', {
+			alias: 'u',
+			type: 'string',
+			description: 'Server URL (remote servers only)',
+		})
+		.option('headers', {
+			alias: 'H',
+			type: 'string',
+			description: 'Comma-separated Key=value headers (remote servers only)',
+		})
+		.option('scope', {
+			alias: 's',
+			type: 'string',
+			choices: /** @type {const} */ (['global', 'project']),
+			description: 'Config scope (global or project)',
+		})
+		.option('clients', {
+			alias: 'C',
+			type: 'string',
+			description: `Comma-separated client names (${client_names.join(', ')})`,
+		})
+		.help()
+		.alias('help', 'h')
+		.version()
+		.alias('version', 'v')
+		.parse();
+
+	const is_interactive = !can_run_non_interactive(argv);
+
+	if (is_interactive) {
+		clack.intro('MCP Server Configuration');
+	}
+
+	// Server name
+	let name = argv.name;
+	if (!name) {
+		const name_input = await clack.text({
+			message: 'What is the server name?',
+			placeholder: 'my-mcp-server',
+			validate: (value) => {
+				if (!value.trim()) return 'Server name is required';
+				if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
+					return 'Server name can only contain letters, numbers, hyphens, and underscores';
+				}
+			},
+		});
+		if (is_cancel(name_input)) {
+			clack.cancel('Operation cancelled');
+			process.exit(0);
+		}
+		name = name_input;
+	}
+
+	// Server type
+	/** @type {'local' | 'remote' | undefined} */
+	let type = /** @type {'local' | 'remote' | undefined} */ (argv.type);
+	if (!type) {
+		const type_input = await clack.select({
+			message: 'What type of server is this?',
+			options: [
+				{ value: 'local', label: 'Local (stdio)', hint: 'Runs a local command' },
+				{ value: 'remote', label: 'Remote (SSE/HTTP)', hint: 'Connects to a URL' },
+			],
+		});
+		if (is_cancel(type_input)) {
+			clack.cancel('Operation cancelled');
+			process.exit(0);
+		}
+		type = /** @type {'local' | 'remote'} */ (type_input);
+	}
+
+	// Type-specific configuration
+	/** @type {string | undefined} */
+	let command;
+	/** @type {string[]} */
+	let args = [];
+	/** @type {Record<string, string>} */
+	let env = {};
+	/** @type {string | undefined} */
+	let url;
+	/** @type {Record<string, string>} */
+	let headers = {};
+
+	if (type === 'local') {
+		// Command (full command string with arguments)
+		let full_command = argv.command;
+		if (!full_command) {
+			const command_input = await clack.text({
+				message: 'What command should be run?',
+				placeholder: 'npx -y @modelcontextprotocol/server-filesystem /tmp',
+				validate: (value) => {
+					if (!value.trim()) return 'Command is required';
+				},
+			});
+			if (is_cancel(command_input)) {
+				clack.cancel('Operation cancelled');
+				process.exit(0);
+			}
+			full_command = command_input;
+		}
+
+		// Parse the full command into command and args
+		const parts = full_command.trim().split(/\s+/);
+		command = parts[0];
+		args = parts.slice(1);
+
+		// Environment variables
+		if (argv.env !== undefined) {
+			env = parse_key_value_pairs(argv.env);
+		} else if (is_interactive) {
+			const env_input = await clack.text({
+				message: 'Environment variables? (comma-separated KEY=value, or leave empty)',
+				placeholder: 'API_KEY=secret, DEBUG=true',
+				defaultValue: '',
+			});
+			if (is_cancel(env_input)) {
+				clack.cancel('Operation cancelled');
+				process.exit(0);
+			}
+			env = parse_key_value_pairs(env_input);
+		}
+	} else {
+		// URL
+		url = argv.url;
+		if (!url) {
+			const url_input = await clack.text({
+				message: 'What is the server URL?',
+				placeholder: 'https://mcp.example.com/sse',
+				validate: (value) => {
+					if (!value.trim()) return 'URL is required';
+					try {
+						new URL(value);
+					} catch {
+						return 'Please enter a valid URL';
+					}
+				},
+			});
+			if (is_cancel(url_input)) {
+				clack.cancel('Operation cancelled');
+				process.exit(0);
+			}
+			url = url_input;
+		}
+
+		// Headers
+		if (argv.headers !== undefined) {
+			headers = parse_key_value_pairs(argv.headers);
+		} else if (is_interactive) {
+			const headers_input = await clack.text({
+				message: 'HTTP headers? (comma-separated Key=value, or leave empty)',
+				placeholder: 'Authorization=Bearer token123',
+				defaultValue: '',
+			});
+			if (is_cancel(headers_input)) {
+				clack.cancel('Operation cancelled');
+				process.exit(0);
+			}
+			headers = parse_key_value_pairs(headers_input);
+		}
+	}
+
+	// Scope
+	/** @type {'global' | 'project' | undefined} */
+	let scope = /** @type {'global' | 'project' | undefined} */ (argv.scope);
+	if (!scope) {
+		const scope_input = await clack.select({
+			message: 'Where should the configuration be saved?',
+			options: [
+				{ value: 'global', label: 'Global', hint: 'User-wide configuration' },
+				{ value: 'project', label: 'Project', hint: 'Current directory only' },
+			],
+		});
+		if (is_cancel(scope_input)) {
+			clack.cancel('Operation cancelled');
+			process.exit(0);
+		}
+		scope = /** @type {'global' | 'project'} */ (scope_input);
+	}
+
+	// Clients selection
+	/** @type {string[]} */
+	let selected_clients = [];
+	if (argv.clients !== undefined) {
+		selected_clients = parse_comma_separated(argv.clients).filter((c) =>
+			client_names.includes(c.toLowerCase()),
+		);
+	}
+
+	if (selected_clients.length === 0) {
+		const clients_input = await clack.multiselect({
+			message: 'Which clients should be configured?',
+			options: client_names.map((c) => ({
+				value: c,
+				label: c.charAt(0).toUpperCase() + c.slice(1),
+			})),
+			required: true,
+		});
+		if (is_cancel(clients_input)) {
+			clack.cancel('Operation cancelled');
+			process.exit(0);
+		}
+		selected_clients = /** @type {string[]} */ (clients_input);
+	}
+
+	// Build the configuration object
+	/** @type {MCPServerConfig} */
+	const config =
+		type === 'local'
+			? {
+					name,
+					type,
+					command: /** @type {string} */ (command),
+					args,
+					env,
+				}
+			: {
+					name,
+					type,
+					url: /** @type {string} */ (url),
+					headers,
+				};
+
+	const is_global = scope === 'global';
+
+	// Apply configuration to each selected client
+	/** @type {Array<{ client: string; success: boolean; path: string; error?: string }>} */
+	const results = [];
+
+	if (is_interactive) {
+		const spinner = clack.spinner();
+		spinner.start('Configuring clients...');
+
+		for (const client_name of selected_clients) {
+			const client_fn = clients[client_name.toLowerCase()];
+			if (client_fn) {
+				const result = await client_fn(config, { is_global });
+				results.push({
+					client: client_name,
+					...result,
+				});
+			}
+		}
+
+		spinner.stop('Configuration complete!');
+	} else {
+		// Non-interactive mode - just run without spinner
+		for (const client_name of selected_clients) {
+			const client_fn = clients[client_name.toLowerCase()];
+			if (client_fn) {
+				const result = await client_fn(config, { is_global });
+				results.push({
+					client: client_name,
+					...result,
+				});
+			}
+		}
+	}
+
+	// Display results
+	const successful = results.filter((r) => r.success);
+	const failed = results.filter((r) => !r.success);
+
+	if (is_interactive) {
+		if (successful.length > 0) {
+			clack.note(
+				successful.map((r) => `${r.client}: ${r.path}`).join('\n'),
+				'Successfully configured',
+			);
+		}
+
+		if (failed.length > 0) {
+			clack.note(
+				failed.map((r) => `${r.client}: ${r.error}`).join('\n'),
+				'Failed to configure',
+			);
+		}
+
+		clack.outro(
+			successful.length === results.length
+				? 'All clients configured successfully!'
+				: `Configured ${successful.length}/${results.length} clients`,
+		);
+	} else {
+		// Non-interactive output
+		for (const result of successful) {
+			console.log(`${result.client}: ${result.path}`);
+		}
+		for (const result of failed) {
+			console.error(`${result.client}: ${result.error}`);
+		}
+
+		if (failed.length > 0) {
+			process.exit(1);
+		}
+	}
+}
+
+main().catch((err) => {
+	console.error('Error:', err);
+	process.exit(1);
+});
