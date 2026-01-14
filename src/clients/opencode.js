@@ -57,7 +57,7 @@ function read_config(config_path) {
  * @returns {Record<string, unknown>} OpenCode formatted config
  */
 function transform_config(config) {
-	if (config.type === 'local') {
+	if (config.type === 'stdio') {
 		// OpenCode uses command as an array including the command and args
 		const command_array = [config.command, ...(config.args || [])];
 		/** @type {Record<string, unknown>} */

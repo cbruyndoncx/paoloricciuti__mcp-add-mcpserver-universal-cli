@@ -69,11 +69,11 @@ function can_run_non_interactive(argv) {
 		return false;
 	}
 
-	if (argv.type === 'local' && !argv.command) {
+	if (argv.type === 'stdio' && !argv.command) {
 		return false;
 	}
 
-	if (argv.type === 'remote' && !argv.url) {
+	if (argv.type === 'http' && !argv.url) {
 		return false;
 	}
 
@@ -96,29 +96,29 @@ async function main() {
 		.option('type', {
 			alias: 't',
 			type: 'string',
-			choices: /** @type {const} */ (['local', 'remote']),
-			description: 'Server type (local or remote)',
+			choices: /** @type {const} */ (['stdio', 'http']),
+			description: 'Server type (stdio or http)',
 		})
 		.option('command', {
 			alias: 'c',
 			type: 'string',
 			description:
-				'Full command to run (local servers only), e.g. "npx -y @modelcontextprotocol/server-filesystem /tmp"',
+				'Full command to run (stdio servers only), e.g. "npx -y @modelcontextprotocol/server-filesystem /tmp"',
 		})
 		.option('env', {
 			alias: 'e',
 			type: 'string',
-			description: 'Comma-separated KEY=value environment variables (local servers only)',
+			description: 'Comma-separated KEY=value environment variables (stdio servers only)',
 		})
 		.option('url', {
 			alias: 'u',
 			type: 'string',
-			description: 'Server URL (remote servers only)',
+			description: 'Server URL (http servers only)',
 		})
 		.option('headers', {
 			alias: 'H',
 			type: 'string',
-			description: 'Comma-separated Key=value headers (remote servers only)',
+			description: 'Comma-separated Key=value headers (http servers only)',
 		})
 		.option('scope', {
 			alias: 's',
@@ -164,21 +164,21 @@ async function main() {
 	}
 
 	// Server type
-	/** @type {'local' | 'remote' | undefined} */
-	let type = /** @type {'local' | 'remote' | undefined} */ (argv.type);
+	/** @type {'stdio' | 'http' | undefined} */
+	let type = /** @type {'stdio' | 'http' | undefined} */ (argv.type);
 	if (!type) {
 		const type_input = await clack.select({
 			message: 'What type of server is this?',
 			options: [
-				{ value: 'local', label: 'Local (stdio)', hint: 'Runs a local command' },
-				{ value: 'remote', label: 'Remote (SSE/HTTP)', hint: 'Connects to a URL' },
+				{ value: 'stdio', label: 'stdio', hint: 'Runs a local command' },
+				{ value: 'http', label: 'HTTP (SSE/HTTP)', hint: 'Connects to a URL' },
 			],
 		});
 		if (is_cancel(type_input)) {
 			clack.cancel('Operation cancelled');
 			process.exit(0);
 		}
-		type = /** @type {'local' | 'remote'} */ (type_input);
+		type = type_input;
 	}
 
 	// Type-specific configuration
@@ -193,7 +193,7 @@ async function main() {
 	/** @type {Record<string, string>} */
 	let headers = {};
 
-	if (type === 'local') {
+	if (type === 'stdio') {
 		// Command (full command string with arguments)
 		let full_command = argv.command;
 		if (!full_command) {
@@ -276,7 +276,7 @@ async function main() {
 	let scope = /** @type {'global' | 'project' | undefined} */ (argv.scope);
 	if (!scope) {
 		const scope_input = await clack.select({
-			message: 'Where should the configuration be saved?',
+			message: 'In which scope to save the configuration?',
 			options: [
 				{ value: 'global', label: 'Global', hint: 'User-wide configuration' },
 				{ value: 'project', label: 'Project', hint: 'Current directory only' },
@@ -317,7 +317,7 @@ async function main() {
 	// Build the configuration object
 	/** @type {MCPServerConfig} */
 	const config =
-		type === 'local'
+		type === 'stdio'
 			? {
 					name,
 					type,

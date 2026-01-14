@@ -38,7 +38,7 @@ function read_config(config_path) {
  * @returns {Record<string, unknown>} Goose formatted config entry
  */
 function transform_config(config) {
-	if (config.type === 'local') {
+	if (config.type === 'stdio') {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			name: config.name,

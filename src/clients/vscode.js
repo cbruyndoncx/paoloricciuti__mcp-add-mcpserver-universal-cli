@@ -4,17 +4,34 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 /**
+ * Gets the VS Code user data directory based on platform
+ * @returns {string} The VS Code user data directory
+ */
+function get_vscode_user_data_dir() {
+	const platform = process.platform;
+	const home = process.env.HOME || process.env.USERPROFILE || '';
+
+	if (platform === 'darwin') {
+		return path.join(home, 'Library', 'Application Support', 'Code', 'User');
+	} else if (platform === 'win32') {
+		return path.join(process.env.APPDATA || '', 'Code', 'User');
+	} else {
+		// Linux and others
+		return path.join(home, '.config', 'Code', 'User');
+	}
+}
+
+/**
  * Gets the VS Code MCP config file path based on scope
  * @param {boolean} is_global - Whether to use global config
  * @returns {string} The config file path
  */
 function get_config_path(is_global) {
 	if (is_global) {
-		// VS Code user config - use MCP: Open User Configuration command location
-		// This is typically in the VS Code user data directory
-		// For simplicity, we'll use the workspace config approach
-		return path.join(process.cwd(), '.vscode', 'mcp.json');
+		// VS Code user config - global MCP settings
+		return path.join(get_vscode_user_data_dir(), 'mcp.json');
 	} else {
+		// Workspace-specific config
 		return path.join(process.cwd(), '.vscode', 'mcp.json');
 	}
 }
@@ -42,7 +59,7 @@ function read_config(config_path) {
  * @returns {Record<string, unknown>} VS Code formatted config
  */
 function transform_config(config) {
-	if (config.type === 'local') {
+	if (config.type === 'stdio') {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			type: 'stdio',

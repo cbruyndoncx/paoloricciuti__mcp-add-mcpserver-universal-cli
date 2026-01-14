@@ -40,7 +40,7 @@ function read_config(config_path) {
  * @returns {Record<string, unknown>} Cursor formatted config
  */
 function transform_config(config) {
-	if (config.type === 'local') {
+	if (config.type === 'stdio') {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			command: config.command,

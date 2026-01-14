@@ -1,7 +1,7 @@
 /**
  * @typedef {object} LocalServerConfig
  * @property {string} name - Server name/identifier
- * @property {'local'} type - Server type
+ * @property {'stdio'} type - Server type
  * @property {string} command - Command to run
  * @property {string[]} args - Command arguments
  * @property {Record<string, string>} [env] - Environment variables
@@ -10,7 +10,7 @@
 /**
  * @typedef {object} RemoteServerConfig
  * @property {string} name - Server name/identifier
- * @property {'remote'} type - Server type
+ * @property {'http'} type - Server type
  * @property {string} url - Server URL
  * @property {Record<string, string>} [headers] - HTTP headers
  */

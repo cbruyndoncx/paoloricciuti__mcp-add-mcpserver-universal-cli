@@ -2,6 +2,7 @@
 
 import { add_to_claude } from './claude.js';
 import { add_to_claude_code } from './claude_code.js';
+import { add_to_copilot_cli } from './copilot_cli.js';
 import { add_to_cursor } from './cursor.js';
 import { add_to_continue } from './continue.js';
 import { add_to_windsurf } from './windsurf.js';
@@ -16,8 +17,9 @@ import { add_to_gemini } from './gemini.js';
  * @type {Record<string, ClientAddFunction>}
  */
 export const clients = {
-	claude: add_to_claude,
+	'claude desktop': add_to_claude,
 	'claude code': add_to_claude_code,
+	'copilot cli': add_to_copilot_cli,
 	cursor: add_to_cursor,
 	continue: add_to_continue,
 	windsurf: add_to_windsurf,
@@ -32,4 +34,4 @@ export const clients = {
  * List of available client names for display
  * @type {string[]}
  */
-export const client_names = Object.keys(clients);
+export const client_names = Object.keys(clients).sort((a, b) => a.localeCompare(b));
