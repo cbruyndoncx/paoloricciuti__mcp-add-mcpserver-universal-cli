@@ -10,7 +10,7 @@
 /**
  * @typedef {object} RemoteServerConfig
  * @property {string} name - Server name/identifier
- * @property {'http'} type - Server type
+ * @property {'http' | 'sse'} type - Server type (http or sse)
  * @property {string} url - Server URL
  * @property {Record<string, string>} [headers] - HTTP headers
  */

@@ -58,7 +58,7 @@ function transform_config(config) {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			name: config.name,
-			type: 'sse',
+			type: config.type,
 			url: config.url,
 		};
 		if (config.headers && Object.keys(config.headers).length > 0) {

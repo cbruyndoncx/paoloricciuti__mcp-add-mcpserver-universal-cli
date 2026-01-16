@@ -56,7 +56,7 @@ function transform_config(config) {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			name: config.name,
-			type: 'sse',
+			type: 'streamable_http',
 			url: config.url,
 			enabled: true,
 			timeout: 300,

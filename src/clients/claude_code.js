@@ -47,6 +47,7 @@ function transform_config(config) {
 		const result = {
 			command: config.command,
 			args: config.args || [],
+			type: config.type,
 		};
 		if (config.env && Object.keys(config.env).length > 0) {
 			result.env = config.env;
@@ -57,6 +58,7 @@ function transform_config(config) {
 		/** @type {Record<string, unknown>} */
 		const result = {
 			url: config.url,
+			type: config.type,
 		};
 		if (config.headers && Object.keys(config.headers).length > 0) {
 			result.headers = config.headers;

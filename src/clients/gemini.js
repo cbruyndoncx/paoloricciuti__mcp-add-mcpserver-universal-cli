@@ -52,11 +52,15 @@ function transform_config(config) {
 		return result;
 	} else {
 		// Gemini uses 'url' for SSE and 'httpUrl' for HTTP streaming
-		// Default to SSE format
 		/** @type {Record<string, unknown>} */
-		const result = {
-			url: config.url,
-		};
+		const result =
+			config.type === 'sse'
+				? {
+						url: config.url,
+					}
+				: {
+						httpUrl: config.url,
+					};
 		if (config.headers && Object.keys(config.headers).length > 0) {
 			result.headers = config.headers;
 		}

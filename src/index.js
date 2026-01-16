@@ -73,7 +73,7 @@ function can_run_non_interactive(argv) {
 		return false;
 	}
 
-	if (argv.type === 'http' && !argv.url) {
+	if ((argv.type === 'http' || argv.type === 'sse') && !argv.url) {
 		return false;
 	}
 
@@ -96,8 +96,8 @@ async function main() {
 		.option('type', {
 			alias: 't',
 			type: 'string',
-			choices: /** @type {const} */ (['stdio', 'http']),
-			description: 'Server type (stdio or http)',
+			choices: /** @type {const} */ (['stdio', 'http', 'sse']),
+			description: 'Server type (stdio, http, or sse)',
 		})
 		.option('command', {
 			alias: 'c',
@@ -164,14 +164,15 @@ async function main() {
 	}
 
 	// Server type
-	/** @type {'stdio' | 'http' | undefined} */
-	let type = /** @type {'stdio' | 'http' | undefined} */ (argv.type);
+	/** @type {'stdio' | 'http' | 'sse' | undefined} */
+	let type = /** @type {'stdio' | 'http' | 'sse' | undefined} */ (argv.type);
 	if (!type) {
 		const type_input = await clack.select({
 			message: 'What type of server is this?',
 			options: [
 				{ value: 'stdio', label: 'stdio', hint: 'Runs a local command' },
-				{ value: 'http', label: 'HTTP (SSE/HTTP)', hint: 'Connects to a URL' },
+				{ value: 'http', label: 'HTTP', hint: 'Connects to a URL via HTTP' },
+				{ value: 'sse', label: 'SSE', hint: 'Connects to a URL via Server-Sent Events' },
 			],
 		});
 		if (is_cancel(type_input)) {
